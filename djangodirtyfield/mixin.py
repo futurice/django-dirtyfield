@@ -1,80 +1,87 @@
 # Adapted from http://stackoverflow.com/questions/110803/dirty-fields-in-django
 from django.db import models
 from django.db.models.signals import post_save
+from django.contrib.contenttypes.models import ContentType
+from pprint import pprint as pp
+
 import random, string, hashlib, time
 
 def id_generator():
     return hashlib.md5(str(time.time())).hexdigest() + str(random.randint(1, 100))
 
 class DirtyFieldMixin(object):
+    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'}}
     def __init__(self, *args, **kwargs):
         super(DirtyFieldMixin, self).__init__(*args, **kwargs)
         post_save.connect(
             self._reset_state, sender=self.__class__,
             dispatch_uid='%s._reset_state_%s'%(self.__class__.__name__, id_generator()))
-        self._reset_state(initialize_dirtyfields=True)
+        self._reset_state(initialize=True)
 
-    def _as_dict(self):
+    def get_fields(self):
+        return self._meta.local_fields
+
+    def get_source(self, name, value):
+        return getattr(self, self.sources[name][value])
+
+    def _as_dict(self, *args, **kwargs):
         fields = dict([
             (f.attname, getattr(self, f.attname))
-            for f in self._meta.local_fields
+            for f in self.get_fields()
         ])
         return fields
 
     def _reset_state(self, *args, **kwargs):
-        self._original_state = self._as_dict()
+        for source, v in self.sources.iteritems():
+            setattr(self, v['state'], getattr(self, v['lookup'])(**kwargs))
 
-    def get_dirty_fields(self, check_local=False):
-        """
-        Add any locally set variables on instantiation
-        - default value used, if exists, and nothing else set
-        """
-        new_state = self._as_dict()
+    def get_dirty_fields(self, source='default'):
+        new_state = self.get_source(source, 'lookup')()
         changed_fields = {}
         if self._state.adding:
-            changed_fields = self.get_field_values()
-        for key,value in self._original_state.iteritems():
+            changed_fields = self.get_field_values(source=source, initial_state=True)
+        for key,value in self.get_source(source, 'state').iteritems():
             if value != new_state[key]:
                 changed_fields.update({key:value})
         return changed_fields
 
-    def get_field_values(self):
+    def as_value(self, value):
+        return value() if (value and callable(value)) else value
+
+    def field_has_default_value(self, field_name, source='default'):
+        for field in self.get_source(source, 'fields'):
+            if field_name == field.name:
+                if field.default:
+                    return field
+        return False
+
+    def get_field_values(self, source='default', initial_state=False):
         changed_fields = {}
-        for k in self._meta.local_fields:
-            field_value = getattr(self, k.name)
+        for k in self.get_source(source, 'fields')():
+            name = k.name if (not isinstance(k, basestring)) else k
+            default = k.default if (not isinstance(k, basestring)) else None
+            field_value = getattr(self, name, None)
             if field_value:
-                default_value = k.default
-                if callable(default_value):
-                    default_value = default_value()
-                if field_value != default_value:
-                    changed_fields[k.name] = field_value
+                if initial_state:
+                    changed_fields[name] = self.as_value(self.get_source(source, 'state').get(name))
                 else:
-                    if default_value:
-                        changed_fields[k.name] = default_value
+                    field_value = self.as_value(field_value)
+                    default_value = self.as_value(default)
+                    if field_value != default_value:
+                        changed_fields[name] = field_value
         return changed_fields
 
-    def is_dirty(self):
+    def is_dirty(self, source='default'):
         if not self.pk:
             return True
-        return {} != self.get_dirty_fields()
+        return {} != self.get_dirty_fields(source=source)
 
-    def get_changes(self, dirty_fields=None):
-        """
-        Get a dict of changes with existing and new values.
-        
-        @param instance:     The instance to get changes on.
-        @param dirty_fields: If supplied this dict will be used as dirty fields 
-                             rather than instance.get_dirty_fields().
-        @return dict         A dict of field names which each consist of a dict 
-                             containing keys 'existing' and 'new'.
-        """
+    def get_changes(self, source='default', dirty_fields=None):
         changes = {}
         if dirty_fields is None:
-            dirty_fields = self.get_dirty_fields()
+            dirty_fields = self.get_dirty_fields(source=source)
         for field, old in dirty_fields.iteritems():
             field_value = getattr(self, field)
-            if callable(field_value):
-                field_value = field_value()
             changes[field] = {'old': old, 'new': field_value}
         return changes
 
@@ -84,3 +91,7 @@ class DirtyFieldMixin(object):
             if isinstance(field, models.ManyToManyField):
                 r.append(field)
         return r
+
+class TypedDirtyFieldMixin(DirtyFieldMixin):
+    def get_content_type(self):
+        return ContentType.objects.get_for_model(self)

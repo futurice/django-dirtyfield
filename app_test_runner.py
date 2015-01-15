@@ -40,6 +40,7 @@ def main():
                 "PASSWORD": options.DATABASE_PASSWORD,
             }
         },
+        "TIME_ZONE": 'Europe/Helsinki',
         "USE_TZ": True,
         "SITE_ID": options.SITE_ID,
         "ROOT_URLCONF": "{0}.urls".format(APP),
