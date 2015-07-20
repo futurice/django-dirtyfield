@@ -7,7 +7,7 @@ from django.utils.timezone import now
 from django.core.urlresolvers import reverse
 from django.contrib.auth import get_user_model
 
-from models import Publication, Article, Publisher
+from .models import Publication, Article, Publisher
 
 from pprint import pprint as pp
 import copy, time
