@@ -5,9 +5,10 @@ from django.contrib.contenttypes.models import ContentType
 from pprint import pprint as pp
 
 import random, string, hashlib, time
+import six
 
 def id_generator():
-    return hashlib.md5(str(time.time())).hexdigest() + str(random.randint(1, 100))
+    return hashlib.md5(str(time.time()).encode('utf-8')).hexdigest() + str(random.randint(1, 100))
 
 class DirtyFieldMixin(object):
     sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'}}
@@ -32,7 +33,7 @@ class DirtyFieldMixin(object):
         return fields
 
     def _reset_state(self, *args, **kwargs):
-        for source, v in self.sources.iteritems():
+        for source, v in six.iteritems(self.sources):
             setattr(self, v['state'], getattr(self, v['lookup'])(**kwargs))
 
     def get_dirty_fields(self, source='default'):
@@ -40,7 +41,7 @@ class DirtyFieldMixin(object):
         changed_fields = {}
         if self._state.adding:
             changed_fields = self.get_field_values(source=source, initial_state=True)
-        for key,value in self.get_source(source, 'state').iteritems():
+        for key,value in six.iteritems(self.get_source(source, 'state')):
             if value != new_state[key]:
                 changed_fields.update({key:value})
         return changed_fields
@@ -58,8 +59,8 @@ class DirtyFieldMixin(object):
     def get_field_values(self, source='default', initial_state=False):
         changed_fields = {}
         for k in self.get_source(source, 'fields')():
-            name = k.name if (not isinstance(k, basestring)) else k
-            default = k.default if (not isinstance(k, basestring)) else None
+            name = k.name if (not isinstance(k, six.string_types)) else k
+            default = k.default if (not isinstance(k, six.string_types)) else None
             field_value = getattr(self, name, None)
             if field_value:
                 if initial_state:
@@ -80,7 +81,7 @@ class DirtyFieldMixin(object):
         changes = {}
         if dirty_fields is None:
             dirty_fields = self.get_dirty_fields(source=source)
-        for field, old in dirty_fields.iteritems():
+        for field, old in six.iteritems(dirty_fields):
             field_value = getattr(self, field)
             changes[field] = {'old': old, 'new': field_value}
         return changes

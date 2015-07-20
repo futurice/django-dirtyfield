@@ -19,12 +19,12 @@ class TestCommand(Command):
                              'app_test_runner.py',
                              'test_project']))
 
-install_requires = []
+install_requires = ['six',]
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 setup(
     name = "django-dirtyfield",
-    version = "0.6",
+    version = "0.7",
     description = "Track changed data in Django Models",
     url = "http://github.com/futurice/django-dirtyfield",
     author = "Jussi Vaihia",
