@@ -24,7 +24,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 
 setup(
     name = "django-dirtyfield",
-    version = "0.7",
+    version = "0.8",
     description = "Track changed data in Django Models",
     url = "http://github.com/futurice/django-dirtyfield",
     author = "Jussi Vaihia",
@@ -34,6 +34,7 @@ setup(
     keywords = 'django model dirty field',
     license = 'BSD',
     install_requires = install_requires,
+    tests_require = install_requires,
     cmdclass = {
         'test': TestCommand,
     },

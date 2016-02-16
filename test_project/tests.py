@@ -1,17 +1,17 @@
 from django.conf import settings
-from django.test import TestCase, TransactionTestCase
-from django.test.client import Client
-from django.contrib.contenttypes.models import ContentType
-from django.test import TestCase, RequestFactory
-from django.utils.timezone import now
-from django.core.urlresolvers import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.core.files import File
+from django.core.urlresolvers import reverse
+from django.test import TestCase, RequestFactory, TransactionTestCase
+from django.test.client import Client
+from django.utils.timezone import now
 
-from .models import Publication, Article, Publisher
+from .models import Publication, Article, Publisher, ArticleMedia
 
-from pprint import pprint as pp
-import copy, time
 from collections import Counter
+from pprint import pprint as pp
+import os, copy, time, shutil
 
 class BaseSuite(TransactionTestCase):
     pass
@@ -80,3 +80,34 @@ class DirtyTest(BaseSuite):
         article.save()
         self.assertEquals(article.get_changes(), {})
         self.assertEquals(article.get_changes('extra'), {})
+
+    def test_filefield(self):
+        def up(path, data):
+            f = open(path, 'w')
+            f.write(data)
+            f.close()
+            df = File(open(path, 'r'))
+            os.remove(path)
+            return df
+        upload = up('upload.txt', 'upload')
+        am = ArticleMedia()
+        am.upload = upload
+        self.assertEquals(
+            am.get_changes(),
+            {'upload': {'new': upload, 'old': ArticleMedia().upload}})
+        self.assertTrue('upload.txt' in am.get_changes()['upload']['new'].path)
+        am.save()
+        self.assertEquals(am.get_changes(), {})
+
+        upload2 = up('upload_two.txt', 'upload')
+
+        am_state = am.upload
+        am = ArticleMedia.objects.get(pk=am.pk)
+        am.upload = upload2
+        self.assertEquals(
+            am.get_changes(),
+            {'upload': {'new': upload2, 'old': am_state}})
+        self.assertTrue('upload_two.txt' in am.get_changes()['upload']['new'].path)
+        self.assertFalse('upload_two.txt' in am.get_changes()['upload']['old'].path)
+
+        shutil.rmtree('uploads/')

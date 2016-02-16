@@ -45,5 +45,8 @@ class Article(MultiBaseModel):
     headline = models.CharField(max_length=255)
     publications = models.ManyToManyField(Publication)
 
+class ArticleMedia(models.Model, DirtyFieldMixin):
+    upload = models.FileField(upload_to='uploads/')
+
 class User(AbstractUser, DirtyFieldMixin):
     pass
