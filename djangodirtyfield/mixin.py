@@ -1,6 +1,6 @@
 # Adapted from http://stackoverflow.com/questions/110803/dirty-fields-in-django
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import pre_save, post_save
 from django.contrib.contenttypes.models import ContentType
 from pprint import pprint as pp
 
@@ -77,10 +77,15 @@ class DirtyFieldMixin(object):
 
     def __init__(self, *args, **kwargs):
         self.dirtyfield = DirtyField(instance=self)
+        self._dirtyfields_copy = {}
         super(DirtyFieldMixin, self).__init__(*args, **kwargs)
-        post_save.connect(
-            self._reset_state, sender=self.__class__,
-            dispatch_uid='%s._reset_state_%s'%(self.__class__.__name__, id_generator()))
+        genuid = lambda s: '%s._%s_state_%s'%(self.__class__.__name__, s, id_generator())
+        pre_save.connect(self._presave_state,
+                sender=self.__class__,
+                dispatch_uid=genuid('state'))
+        post_save.connect(self._reset_state,
+                sender=self.__class__,
+                dispatch_uid=genuid('reset'))
         self._reset_state(initialize=True)
 
     def _as_dict(self, *args, **kwargs):
@@ -90,13 +95,15 @@ class DirtyFieldMixin(object):
         ])
         return fields
 
-
     def get_fields(self):
         return self._meta.local_fields
 
     def _reset_state(self, *args, **kwargs):
         for source, v in six.iteritems(self.sources):
             setattr(self, v['state'], getattr(self, v['lookup'])(**kwargs))
+
+    def _presave_state(self, sender, instance, **kwargs):
+        self.update_dirtyfields_copy()
 
     def get_changes(self, source='default', dirty_fields=None):
         changes = {}
@@ -106,6 +113,12 @@ class DirtyFieldMixin(object):
             field_value = getattr(self, field)
             changes[field] = {'old': old, 'new': field_value}
         return changes
+
+    def update_dirtyfields_copy(self):
+        self._dirtyfields_copy = self.get_changes()
+
+    def get_dirtyfields_copy(self):
+        return self._dirtyfields_copy
 
 class TypedDirtyFieldMixin(DirtyFieldMixin):
     def get_content_type(self):

@@ -18,6 +18,11 @@ class MyModel(models.Model, DirtyFieldMixin):
 
 Call `get_changes()` to list modifications.
 
+Using a custom model.save()
+--------------
+
+Add a call to `self.update_dirtyfields_copy()` after any modifications done in a custom `model.save()`.
+
 Multiple sources
 ----------------
 
