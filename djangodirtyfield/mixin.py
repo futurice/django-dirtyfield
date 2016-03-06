@@ -73,7 +73,7 @@ class DirtyField(object):
         return {} != self.get_dirty_fields(source=source)
 
 class DirtyFieldMixin(object):
-    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'}}
+    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': '_get_fields'}}
 
     def __init__(self, *args, **kwargs):
         self.dirtyfield = DirtyField(instance=self)
@@ -91,11 +91,11 @@ class DirtyFieldMixin(object):
     def _as_dict(self, *args, **kwargs):
         fields = dict([
             (f.attname, getattr(self, f.attname))
-            for f in self.get_fields()
+            for f in self._get_fields()
         ])
         return fields
 
-    def get_fields(self):
+    def _get_fields(self):
         return self._meta.local_fields
 
     def _reset_state(self, *args, **kwargs):

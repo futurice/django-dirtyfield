@@ -30,7 +30,7 @@ It is possible to track and namespace specified fields, eg. if you're using the 
 
 ```python
 class ModelLdapDirtyField(DirtyFieldMixin):
-    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'},
+    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': '_get_fields'},
             'ldap': {'state': '_ldap_original_state', 'lookup': '_ldap_as_dict', 'fields': 'get_ldap_fields'}}
     def _ldap_as_dict(self, *args, **kwargs):
         fields = {}

@@ -10,7 +10,7 @@ from django.contrib.auth.models import AbstractBaseUser, AbstractUser
 from djangodirtyfield.mixin import DirtyFieldMixin
 
 class MultiSourceDirtyFieldMixin(DirtyFieldMixin):
-    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'},
+    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': '_get_fields'},
             'extra': {'state': '_extra_state', 'lookup': '_extra_as_dict', 'fields': 'get_extra_fields'}}
 
     def get_extra_fields(self):
