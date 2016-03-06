@@ -118,3 +118,11 @@ class DirtyTest(BaseSuite):
         self.assertFalse(changed(article.get_changes(), 'headline'))
         article.headline = 'How to learn anything in five minutes'
         self.assertTrue(changed(article.get_changes(), 'headline'))
+
+    def test_changes_copy(self):
+        article = Article()
+        article.headline = 'How to learn anything in five minutes'
+        article.save()
+        self.assertEqual(article.get_dirtyfields_copy(), {'headline': {'new': 'How to learn anything in five minutes', 'old': u''}})
+        article.save()
+        self.assertEqual(article.get_dirtyfields_copy(), {})
