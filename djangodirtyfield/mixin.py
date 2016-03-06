@@ -10,36 +10,31 @@ import six
 def id_generator():
     return hashlib.md5(str(time.time()).encode('utf-8')).hexdigest() + str(random.randint(1, 100))
 
-class DirtyFieldMixin(object):
-    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'}}
-    def __init__(self, *args, **kwargs):
-        super(DirtyFieldMixin, self).__init__(*args, **kwargs)
-        post_save.connect(
-            self._reset_state, sender=self.__class__,
-            dispatch_uid='%s._reset_state_%s'%(self.__class__.__name__, id_generator()))
-        self._reset_state(initialize=True)
+def changed(changes, field):
+    if changes.get(field):
+        val = lambda s: changes[field][s]
+        if val('new') != val('old'):
+            return True
+    return False
 
-    def get_fields(self):
-        return self._meta.local_fields
+class DirtyField(object):
+    def __init__(self, instance):
+        self.instance = instance
+
+    def get_m2m_relations(self):
+        r = []
+        for field, model in self.instance._meta.get_m2m_with_model():
+            if isinstance(field, models.ManyToManyField):
+                r.append(field)
+        return r
 
     def get_source(self, name, value):
-        return getattr(self, self.sources[name][value])
-
-    def _as_dict(self, *args, **kwargs):
-        fields = dict([
-            (f.attname, getattr(self, f.attname))
-            for f in self.get_fields()
-        ])
-        return fields
-
-    def _reset_state(self, *args, **kwargs):
-        for source, v in six.iteritems(self.sources):
-            setattr(self, v['state'], getattr(self, v['lookup'])(**kwargs))
+        return getattr(self.instance, self.instance.sources[name][value])
 
     def get_dirty_fields(self, source='default'):
         new_state = self.get_source(source, 'lookup')()
         changed_fields = {}
-        if self._state.adding:
+        if self.instance._state.adding:
             changed_fields = self.get_field_values(source=source, initial_state=True)
         for key,value in six.iteritems(self.get_source(source, 'state')):
             if value != new_state[key]:
@@ -61,7 +56,7 @@ class DirtyFieldMixin(object):
         for k in self.get_source(source, 'fields')():
             name = k.name if (not isinstance(k, six.string_types)) else k
             default = k.default if (not isinstance(k, six.string_types)) else None
-            field_value = getattr(self, name, None)
+            field_value = getattr(self.instance, name, None)
             if field_value:
                 if initial_state:
                     changed_fields[name] = self.as_value(self.get_source(source, 'state').get(name))
@@ -73,25 +68,44 @@ class DirtyFieldMixin(object):
         return changed_fields
 
     def is_dirty(self, source='default'):
-        if not self.pk:
+        if not self.instance.pk:
             return True
         return {} != self.get_dirty_fields(source=source)
+
+class DirtyFieldMixin(object):
+    sources = {'default': {'state': '_original_state', 'lookup': '_as_dict', 'fields': 'get_fields'}}
+
+    def __init__(self, *args, **kwargs):
+        self.dirtyfield = DirtyField(instance=self)
+        super(DirtyFieldMixin, self).__init__(*args, **kwargs)
+        post_save.connect(
+            self._reset_state, sender=self.__class__,
+            dispatch_uid='%s._reset_state_%s'%(self.__class__.__name__, id_generator()))
+        self._reset_state(initialize=True)
+
+    def _as_dict(self, *args, **kwargs):
+        fields = dict([
+            (f.attname, getattr(self, f.attname))
+            for f in self.get_fields()
+        ])
+        return fields
+
+
+    def get_fields(self):
+        return self._meta.local_fields
+
+    def _reset_state(self, *args, **kwargs):
+        for source, v in six.iteritems(self.sources):
+            setattr(self, v['state'], getattr(self, v['lookup'])(**kwargs))
 
     def get_changes(self, source='default', dirty_fields=None):
         changes = {}
         if dirty_fields is None:
-            dirty_fields = self.get_dirty_fields(source=source)
+            dirty_fields = self.dirtyfield.get_dirty_fields(source=source)
         for field, old in six.iteritems(dirty_fields):
             field_value = getattr(self, field)
             changes[field] = {'old': old, 'new': field_value}
         return changes
-
-    def get_m2m_relations(self):
-        r = []
-        for field, model in self._meta.get_m2m_with_model():
-            if isinstance(field, models.ManyToManyField):
-                r.append(field)
-        return r
 
 class TypedDirtyFieldMixin(DirtyFieldMixin):
     def get_content_type(self):

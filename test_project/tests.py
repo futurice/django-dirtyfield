@@ -8,6 +8,7 @@ from django.test.client import Client
 from django.utils.timezone import now
 
 from .models import Publication, Article, Publisher, ArticleMedia
+from djangodirtyfield.mixin import changed
 
 from collections import Counter
 from pprint import pprint as pp
@@ -111,3 +112,9 @@ class DirtyTest(BaseSuite):
         self.assertFalse('upload_two.txt' in am.get_changes()['upload']['old'].path)
 
         shutil.rmtree('uploads/')
+
+    def test_changed(self):
+        article = Article()
+        self.assertFalse(changed(article.get_changes(), 'headline'))
+        article.headline = 'How to learn anything in five minutes'
+        self.assertTrue(changed(article.get_changes(), 'headline'))

@@ -24,7 +24,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 
 setup(
     name = "django-dirtyfield",
-    version = "0.8",
+    version = "0.9",
     description = "Track changed data in Django Models",
     url = "http://github.com/futurice/django-dirtyfield",
     author = "Jussi Vaihia",
