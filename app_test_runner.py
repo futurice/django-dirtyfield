@@ -43,7 +43,12 @@ def main():
     parser.add_option("--DATABASE_USER", dest="DATABASE_USER", default="")
     parser.add_option("--DATABASE_PASSWORD", dest="DATABASE_PASSWORD", default="")
     parser.add_option("--SITE_ID", dest="SITE_ID", type="int", default=1)
+    parser.add_option("--cmd", dest="cmd", default="test")
+    parser.add_option("--cmdargs", dest="cmdargs", default="")
     options, args = parser.parse_args()
+
+    if options.cmdargs:
+        args += options.cmdargs.split(',')
     
     try:
         app_path = args[0]
@@ -64,6 +69,7 @@ def main():
                 "PASSWORD": options.DATABASE_PASSWORD,
             }
         },
+        "DEBUG": True,
         "TIME_ZONE": 'Europe/Helsinki',
         "USE_TZ": True,
         "SITE_ID": options.SITE_ID,
@@ -83,10 +89,10 @@ def main():
         "AUTH_USER_MODEL": '{0}.User'.format(TEST_APP),
     })
 
-    if django.get_version() >= '1.7':
+    if django.VERSION >= (1, 7, 0):
         django.setup()
 
-    call_command("test", *args[1:])
+    call_command(options.cmd, *args[1:])
 
 if __name__ == "__main__":
     main()

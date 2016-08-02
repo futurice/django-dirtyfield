@@ -7,8 +7,8 @@ from django.test import TestCase, RequestFactory, TransactionTestCase
 from django.test.client import Client
 from django.utils.timezone import now
 
-from .models import Publication, Article, Publisher, ArticleMedia
 from djangodirtyfield.mixin import changed
+from test_project.models import Publication, Article, Publisher, ArticleMedia
 
 from collections import Counter
 from pprint import pprint as pp
